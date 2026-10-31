@@ -318,7 +318,16 @@ def evaluation_tab() -> None:
             st.markdown(esc(report.read_text(encoding="utf-8")))
 
 
+@st.cache_resource(show_spinner="Loading the embedding model and index...")
+def warm_up() -> bool:
+    """Load the index and embedding model once per server, so the first question is fast."""
+    engine.load()
+    engine.retrieve("warm-up", k=1)
+    return True
+
+
 def main() -> None:
+    warm_up()
     sidebar()
     st.title("Enterprise Documentation Q&A")
     st.caption("Grounded answers from your manuals, FAQs, policies and release notes, with a citation on every "

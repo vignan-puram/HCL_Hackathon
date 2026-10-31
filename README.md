@@ -23,7 +23,7 @@ Other commands (run from the repo root):
 
 | Command | What it does |
 |---|---|
-| `pytest` | 29 tests: parsers, chunking, retrieval, validator, gate, conflicts, LLM fallback |
+| `pytest` | 30 tests: parsers, chunking, retrieval, validator, gate, conflicts, LLM fallback |
 | `python -m eval.run_eval` | Full evaluation → `eval/reports/` (metrics.json, eval_report.md, examples.md) |
 | `python -m eval.run_eval --retrieval-only` | Retrieval metrics + gate calibration, no LLM calls |
 | `python -m rag.engine index-corpus` | Index `eval/corpus/` from the command line |
