@@ -1,7 +1,6 @@
-"""Shared data contracts for every module (FROZEN at Gate A).
+"""Shared data contracts for every module.
 
-Owner: ALL, Member 1 is gatekeeper. After the freeze, changes must be additive
-(new optional fields only) and agreed by at least two members.
+Used by ingestion, the RAG engine, the Streamlit app and the eval runner.
 
 Status precedence used by rag.engine when building a QueryResult:
   1. gate decision not_found / needs_clarification (no LLM call)
@@ -25,7 +24,6 @@ ConflictType = Literal["version_sensitive", "value_mismatch", "contradiction"]
 DetectedBy = Literal["rules", "llm", "rules+llm"]
 ConfidenceLevel = Literal["high", "medium", "low"]
 RetrievalMode = Literal["hybrid", "dense", "bm25"]
-UploadStatus = Literal["indexed", "duplicate", "failed"]
 ErrorCode = Literal[
     "UNSUPPORTED_FORMAT",
     "FILE_TOO_LARGE",
@@ -64,7 +62,7 @@ class DocumentRecord(BaseModel):
     pages: int | None = None  # PDF only
     num_chunks: int = 0
     uploaded_at: datetime
-    source_url: str  # "/documents/{doc_id}/file" (relative to the API base)
+    source_url: str  # citation identifier: the original filename
 
 
 class Block(BaseModel):
@@ -132,7 +130,7 @@ class Citation(BaseModel):
     version: str | None = None
     effective_date: str | None = None
     excerpt: str = Field(max_length=300)
-    source_url: str  # relative; UI must prefix API_BASE. PDFs add "#page=N"
+    source_url: str  # identifier "filename" or "filename#page=N" for PDFs
     relevance: float
 
 
@@ -188,34 +186,3 @@ class QueryResult(BaseModel):
     model: str | None = None
     timings_ms: dict[str, int] = Field(default_factory=dict)
     debug: dict[str, Any] | None = None
-
-
-# ---------------------------------------------------------------- HTTP
-
-
-class ErrorBody(BaseModel):
-    code: ErrorCode
-    message: str
-    details: dict[str, Any] = Field(default_factory=dict)
-
-
-class ErrorResponse(BaseModel):
-    error: ErrorBody
-
-
-class UploadItem(BaseModel):
-    filename: str
-    status: UploadStatus
-    document: DocumentRecord | None = None
-    error: ErrorBody | None = None
-
-
-class UploadResponse(BaseModel):
-    results: list[UploadItem]
-    index: IndexStats
-
-
-class HealthResponse(BaseModel):
-    status: Literal["ok"] = "ok"
-    index: IndexStats
-    llm_provider: str | None = None
