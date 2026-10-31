@@ -1,0 +1,135 @@
+{
+  "retrieval": {
+    "bm25": {
+      "overall": {
+        "recall@1": 0.571,
+        "hit@1": 0.667,
+        "precision@1": 0.667,
+        "recall@3": 0.905,
+        "hit@3": 0.952,
+        "precision@3": 0.381,
+        "recall@5": 0.929,
+        "hit@5": 0.952,
+        "precision@5": 0.238,
+        "mrr": 0.786
+      }
+    },
+    "dense": {
+      "overall": {
+        "recall@1": 0.762,
+        "hit@1": 0.905,
+        "precision@1": 0.905,
+        "recall@3": 1.0,
+        "hit@3": 1.0,
+        "precision@3": 0.429,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "precision@5": 0.257,
+        "mrr": 0.952
+      }
+    },
+    "hybrid": {
+      "overall": {
+        "recall@1": 0.762,
+        "hit@1": 0.905,
+        "precision@1": 0.905,
+        "recall@3": 0.976,
+        "hit@3": 1.0,
+        "precision@3": 0.413,
+        "recall@5": 1.0,
+        "hit@5": 1.0,
+        "precision@5": 0.257,
+        "mrr": 0.944
+      }
+    }
+  },
+  "retrieval_by_category": [
+    {
+      "category": "conflict",
+      "questions": 4,
+      "bm25 recall@5": 0.875,
+      "bm25 mrr": 0.833,
+      "dense recall@5": 1.0,
+      "dense mrr": 1.0,
+      "hybrid recall@5": 1.0,
+      "hybrid mrr": 1.0
+    },
+    {
+      "category": "direct",
+      "questions": 7,
+      "bm25 recall@5": 1.0,
+      "bm25 mrr": 1.0,
+      "dense recall@5": 1.0,
+      "dense mrr": 1.0,
+      "hybrid recall@5": 1.0,
+      "hybrid mrr": 1.0
+    },
+    {
+      "category": "paraphrase",
+      "questions": 5,
+      "bm25 recall@5": 1.0,
+      "bm25 mrr": 0.633,
+      "dense recall@5": 1.0,
+      "dense mrr": 0.9,
+      "hybrid recall@5": 1.0,
+      "hybrid mrr": 1.0
+    },
+    {
+      "category": "scoped",
+      "questions": 1,
+      "bm25 recall@5": 1.0,
+      "bm25 mrr": 1.0,
+      "dense recall@5": 1.0,
+      "dense mrr": 1.0,
+      "hybrid recall@5": 1.0,
+      "hybrid mrr": 1.0
+    },
+    {
+      "category": "terminology",
+      "questions": 4,
+      "bm25 recall@5": 0.75,
+      "bm25 mrr": 0.5,
+      "dense recall@5": 1.0,
+      "dense mrr": 0.875,
+      "hybrid recall@5": 1.0,
+      "hybrid mrr": 0.708
+    }
+  ],
+  "gate_calibration": {
+    "T_LOW": 0.59,
+    "min_top_score_answerable": 0.601,
+    "max_top_score_unanswerable": 0.58,
+    "suggested_T_LOW": 0.591,
+    "separable": true
+  },
+  "behaviour": {
+    "questions": 28,
+    "status_accuracy": 1.0,
+    "not_found_recall": 1.0,
+    "false_refusal_rate": 0.0,
+    "clarification_rate": 1.0,
+    "conflict_recall": 1.0,
+    "conflict_false_positive_rate": 0.0,
+    "citation_precision": 0.867,
+    "answer_keyword_coverage": 0.952,
+    "claims_removed_by_validator": 0,
+    "llm_calls_avoided_by_gate": 6,
+    "degraded_answers": 0,
+    "latency_ms_p50": 531,
+    "latency_ms_p95": 1462,
+    "confusion": {
+      "answered": {
+        "answered": 17
+      },
+      "conflict": {
+        "conflict": 4
+      },
+      "needs_clarification": {
+        "needs_clarification": 3
+      },
+      "not_found": {
+        "not_found": 4
+      }
+    }
+  }
+}

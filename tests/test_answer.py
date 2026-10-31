@@ -82,3 +82,14 @@ def test_llm_answer_is_validated_end_to_end(monkeypatch):
     assert result.status == "conflict" and result.model == "fake-model"
     assert result.conflicts[0].detected_by == "rules"  # rule kept although the LLM ignored it
     assert {p.statement for p in result.conflicts[0].positions} == {"30 days", "14 days"}
+
+
+def test_conflict_only_draft_becomes_cited_claims():
+    draft = {"status": "conflict", "claims": [], "conflicts": [{
+        "type": "value_mismatch", "topic": "Refund window", "summary": "30 vs 14 days",
+        "positions": [{"evidence": "S1", "statement": "Refunds within 30 days."},
+                      {"evidence": "S2", "statement": "Refunds within 14 days."}]}]}
+    v = validate(draft, HITS)
+    assert [c.citation_ids for c in v.claims] == [[1], [2]]
+    assert v.claims[0].text.startswith("Billing Policy v2.0 (2025-03-01)")
+    assert "[1]" in v.answer and "[2]" in v.answer and len(v.conflicts) == 1

@@ -43,13 +43,15 @@ def is_configured() -> bool:
     return bool(key)
 
 
-def _call_gemini(model: str, system: str, user: str) -> str:
+def _call_gemini(model: str, system: str, user: str, schema: dict | None = None) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
         "generationConfig": {"responseMimeType": "application/json", "temperature": 0},
     }
+    if schema:  # structured output: the model must follow this JSON shape
+        body["generationConfig"]["responseSchema"] = schema
     resp = requests.post(
         url, json=body, headers={"x-goog-api-key": config.GEMINI_API_KEY}, timeout=config.LLM_TIMEOUT_S
     )
@@ -59,7 +61,7 @@ def _call_gemini(model: str, system: str, user: str) -> str:
     return "".join(p.get("text", "") for p in parts if not p.get("thought"))
 
 
-def _call_openai(model: str, system: str, user: str) -> str:
+def _call_openai(model: str, system: str, user: str, schema: dict | None = None) -> str:
     resp = requests.post(
         f"{config.OPENAI_BASE_URL.rstrip('/')}/chat/completions",
         json={
@@ -76,17 +78,18 @@ def _call_openai(model: str, system: str, user: str) -> str:
     return resp.json()["choices"][0]["message"]["content"]
 
 
-def _cache_path(system: str, user: str):
+def _cache_path(system: str, user: str, schema: dict | None):
     # keyed on the prompt only, so a cached answer survives a fallback to another model
-    key = hashlib.sha256(f"{config.LLM_PROVIDER}\n{system}\n{user}".encode()).hexdigest()
+    shape = json.dumps(schema, sort_keys=True) if schema else ""
+    key = hashlib.sha256(f"{config.LLM_PROVIDER}\n{system}\n{user}\n{shape}".encode()).hexdigest()
     return config.LLM_CACHE_DIR / f"{key}.json"
 
 
-def complete_json(system: str, user: str, use_cache: bool = True) -> LLMResponse:
+def complete_json(system: str, user: str, use_cache: bool = True, schema: dict | None = None) -> LLMResponse:
     """Return the model's JSON text. Raises LLMError when every model fails."""
     if not is_configured():
         raise LLMError(f"no API key configured for provider '{config.LLM_PROVIDER}'")
-    cache_file = _cache_path(system, user)
+    cache_file = _cache_path(system, user, schema)
     if use_cache and cache_file.exists():
         cached = json.loads(cache_file.read_text(encoding="utf-8"))
         return LLMResponse(cached["text"], cached["model"], cached=True)
@@ -97,7 +100,7 @@ def complete_json(system: str, user: str, use_cache: bool = True) -> LLMResponse
     for model in chain:
         for attempt in range(config.LLM_RETRIES + 1):
             try:
-                text = call(model, system, user)
+                text = call(model, system, user, schema)
             except (requests.RequestException, LLMError, KeyError, IndexError) as exc:
                 errors.append(f"{model}: {type(exc).__name__}: {str(exc)[:120]}")
                 if attempt < config.LLM_RETRIES and not isinstance(exc, requests.Timeout):

@@ -94,7 +94,7 @@ def sidebar() -> None:
         date = st.text_input("Effective date", placeholder="YYYY-MM-DD")
         kind = st.selectbox("Document kind", ["(auto)", "manual", "faq", "release_notes", "policy",
                                               "support_article", "other"])
-    if sb.button("Index uploaded files", type="primary", disabled=not files, use_container_width=True):
+    if sb.button("Index uploaded files", type="primary", disabled=not files, width="stretch"):
         meta = None
         if version or date or kind != "(auto)":
             if date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
@@ -107,7 +107,7 @@ def sidebar() -> None:
         st.session_state["upload_round"] = st.session_state.get("upload_round", 0) + 1
         st.rerun()
 
-    if sb.button("Load sample corpus (Nimbus Workspace)", use_container_width=True):
+    if sb.button("Load sample corpus (Nimbus Workspace)", width="stretch"):
         with st.spinner("Indexing sample corpus..."):
             for path in sorted(config.CORPUS_DIR.iterdir()):
                 if path.suffix.lower() in config.ALLOWED_EXTENSIONS:
@@ -119,7 +119,7 @@ def sidebar() -> None:
     sb.markdown(f"**LLM:** {config.LLM_PROVIDER} · `{model}`" if model else
                 "**LLM:** not configured: answers are extractive only")
     if sb.checkbox("Allow index reset"):
-        if sb.button("Reset index", use_container_width=True):
+        if sb.button("Reset index", width="stretch"):
             engine.reset()
             st.session_state["history"] = []
             st.rerun()
@@ -195,7 +195,7 @@ def render_debug(result: QueryResult) -> None:
         if dbg.get("conflict_candidates"):
             st.markdown("**Rule-based conflict hints:** " + "; ".join(dbg["conflict_candidates"]))
         if dbg.get("hits"):
-            st.dataframe(pd.DataFrame(dbg["hits"]), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(dbg["hits"]), hide_index=True, width="stretch")
         st.caption(f"Timings (ms): {result.timings_ms}")
 
 
@@ -236,7 +236,7 @@ def ask_tab() -> None:
     cols = st.columns(len(EXAMPLES))
     clicked = None
     for col, (label, question) in zip(cols, EXAMPLES):
-        if col.button(label, help=question, use_container_width=True):
+        if col.button(label, help=question, width="stretch"):
             clicked = question
 
     for i, (question, result) in enumerate(history):
@@ -268,9 +268,9 @@ def documents_tab() -> None:
         pd.DataFrame([{
             "File": d.filename, "Title": d.title, "Type": d.doc_type, "Kind": d.doc_kind,
             "Version": d.version or "", "Effective date": d.effective_date or "",
-            "Pages": d.pages or "", "Chunks": d.num_chunks,
+            "Pages": str(d.pages) if d.pages else "", "Chunks": d.num_chunks,
         } for d in docs]),
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
     )
     names = {d.filename: d for d in docs}
     pick = st.selectbox("Inspect how a document was chunked", list(names))
@@ -301,17 +301,17 @@ def evaluation_tab() -> None:
 
     st.subheader("Retrieval ablation")
     rows = [{"mode": mode, **vals["overall"]} for mode, vals in m.get("retrieval", {}).items()]
-    st.dataframe(pd.DataFrame(rows).round(3), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows).round(3), hide_index=True, width="stretch")
     if m.get("retrieval_by_category"):
         st.subheader("Hybrid retrieval by question category")
-        st.dataframe(pd.DataFrame(m["retrieval_by_category"]).round(3), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(m["retrieval_by_category"]).round(3), hide_index=True, width="stretch")
     if beh:
         st.subheader("Answer behaviour")
         st.dataframe(pd.DataFrame([{k: v for k, v in beh.items() if not isinstance(v, dict)}]).round(3),
-                     hide_index=True, use_container_width=True)
+                     hide_index=True, width="stretch")
         if beh.get("confusion"):
             st.subheader("Status confusion matrix (rows = expected)")
-            st.dataframe(pd.DataFrame(beh["confusion"]).fillna(0).astype(int).T, use_container_width=True)
+            st.dataframe(pd.DataFrame(beh["confusion"]).fillna(0).astype(int).T, width="stretch")
     report = config.REPORTS_DIR / "eval_report.md"
     if report.exists():
         with st.expander("Full evaluation report"):

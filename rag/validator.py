@@ -75,6 +75,14 @@ def _hit_index(ref, n_hits: int) -> int | None:
     return i if 0 <= i < n_hits else None
 
 
+def _renumber_refs(text: str, cid_of_hit: dict[int, int]) -> str:
+    """Rewrite the model's internal evidence ids ("S2") into the user-facing citation numbers ("[1]")."""
+    def sub(match: re.Match) -> str:
+        cid = cid_of_hit.get(int(match.group(1)) - 1)
+        return f"[{cid}]" if cid else "another source"
+    return re.sub(r"\[?\bS(\d+)\b\]?", sub, text)
+
+
 def _source_text(hit: ScoredChunk) -> str:
     c = hit.chunk
     return f"{c.embed_text} {c.filename} {c.version or ''} {c.effective_date or ''}"
@@ -138,21 +146,28 @@ def validate(draft: dict, hits: list[ScoredChunk]) -> Validated:
                  for cid in sorted(hit_of_cid)]
     by_id = {c.id: c for c in citations}
 
-    claims = [Claim(text=text, citation_ids=ids, support=_support(text, [_source_text(hits[i]) for i in hit_ids]))
+    claims = [Claim(text=_renumber_refs(text, cid_of_hit), citation_ids=ids, support=_support(text, [_source_text(hits[i]) for i in hit_ids]))
               for text, ids, hit_ids in kept]
     conflicts = []
     for conf, positions in raw_conflicts:
         ctype = conf.get("type") if conf.get("type") in ("version_sensitive", "value_mismatch", "contradiction") else "contradiction"
         conflicts.append(Conflict(
             type=ctype,
-            topic=str(conf.get("topic") or "Sources disagree"),
-            summary=str(conf.get("summary") or ""),
-            positions=[ConflictPosition(citation_id=cid, statement=st or by_id[cid].excerpt[:80],
+            topic=_renumber_refs(str(conf.get("topic") or "Sources disagree"), cid_of_hit),
+            summary=_renumber_refs(str(conf.get("summary") or ""), cid_of_hit),
+            positions=[ConflictPosition(citation_id=cid, statement=_renumber_refs(st, cid_of_hit) or by_id[cid].excerpt[:80],
                                         version=by_id[cid].version, effective_date=by_id[cid].effective_date)
                        for cid, st in positions],
-            resolution_hint=conf.get("resolution_hint") or None,
+            resolution_hint=_renumber_refs(str(conf["resolution_hint"]), cid_of_hit) if conf.get("resolution_hint") else None,
             detected_by="llm",
         ))
-    answer = " ".join(f"{t.rstrip('.')} [{', '.join(map(str, ids))}]." for t, ids, _ in kept)
+    if not claims and conflicts:  # model put both sides only in conflicts[]: each position is a cited statement
+        for conflict in conflicts:
+            for pos in conflict.positions:
+                c = by_id[pos.citation_id]
+                label = c.doc_title + (f" v{c.version}" if c.version else "") + (f" ({c.effective_date})" if c.effective_date else "")
+                claims.append(Claim(text=f"{label}: {pos.statement}", citation_ids=[pos.citation_id],
+                                    support=_support(pos.statement, [_source_text(hits[hit_of_cid[pos.citation_id]])])))
+    answer = " ".join(f"{cl.text.rstrip('.')} [{', '.join(map(str, cl.citation_ids))}]." for cl in claims)
     return Validated(claims, citations, conflicts, answer, cid_of_hit,
                      dropped_claims=len(raw_claims) - len(kept), invalid_ids=invalid)

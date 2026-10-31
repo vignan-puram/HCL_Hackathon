@@ -118,8 +118,9 @@ Hallucination is fought in four layers:
 2. **Prompt:** only numbered evidence `[S1]…[S5]` (with document, section, page, version, date); every
    claim must cite an S-id; disagreeing sources must both be reported; insufficient evidence →
    `not_found`; vague question → `needs_clarification`.
-3. **Structured output:** JSON mode (`claims[{text, evidence[]}]`, `conflicts[]`, `status`), one repair
-   attempt on invalid JSON.
+3. **Structured output:** Gemini `responseSchema` enforces `claims[{text, evidence[]}]`, `conflicts[]`
+   and `status` for every model in the fallback chain; one repair call on invalid JSON or claims
+   without evidence ids.
 4. **Validation:** invented ids are dropped, claims left without a valid citation are removed (and
    counted), citations are renumbered `[1..n]` by first use, each citation gets the best-matching
    sentence as its excerpt, and claims whose numbers or wording are absent from the cited passage are
