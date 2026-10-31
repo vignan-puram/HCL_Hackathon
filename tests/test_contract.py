@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 import config
-from common.schemas import Chunk, Claim, DocumentRecord, QueryResult
+from common.schemas import Claim, DocumentRecord, QueryResult
 
 
 def _doc(doc_id: str = "a1b2c3d4e5f6") -> DocumentRecord:
@@ -20,20 +20,6 @@ def _doc(doc_id: str = "a1b2c3d4e5f6") -> DocumentRecord:
         num_chunks=1,
         uploaded_at=datetime.now(timezone.utc),
         source_url=f"/documents/{doc_id}/file",
-    )
-
-
-def _chunk(doc_id: str = "a1b2c3d4e5f6", ordinal: int = 0) -> Chunk:
-    return Chunk(
-        chunk_id=f"{doc_id}:{ordinal:04d}",
-        doc_id=doc_id,
-        doc_title="Billing FAQ",
-        filename="billing_faq.md",
-        doc_type="md",
-        ordinal=ordinal,
-        text="Refunds within 14 days.",
-        embed_text="Billing FAQ > Refunds\nRefunds within 14 days.",
-        word_count=4,
     )
 
 
