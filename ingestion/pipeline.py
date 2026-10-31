@@ -70,7 +70,8 @@ def _strip_title(blocks: list[Block], title: str) -> list[Block]:
     """Drop the document title from the front of section paths (it is already the breadcrumb root)."""
     out = []
     for b in blocks:
-        path = b.section_path[1:] if b.section_path and b.section_path[0] == title else b.section_path
+        is_title = b.section_path and b.section_path[0].lower() == title.lower()
+        path = b.section_path[1:] if is_title else b.section_path
         out.append(b.model_copy(update={"section_path": path}))
     return out
 

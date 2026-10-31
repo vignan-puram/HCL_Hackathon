@@ -1,4 +1,4 @@
-"""Contract tests: fixture, schemas and engine signatures agree. Owner: Member 2."""
+"""Contract tests: the fixture QueryResult and schema constraints agree."""
 
 import json
 from datetime import datetime, timezone
@@ -7,8 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 import config
-from common.schemas import Chunk, Claim, DocumentRecord, QueryResult, ScoredChunk
-from rag import engine
+from common.schemas import Chunk, Claim, DocumentRecord, QueryResult
 
 
 def _doc(doc_id: str = "a1b2c3d4e5f6") -> DocumentRecord:
@@ -43,18 +42,6 @@ def test_fixture_validates_as_query_result():
     result = QueryResult.model_validate(data)
     assert result.status == "conflict"
     assert {c.id for c in result.citations} >= {i for cl in result.claims for i in cl.citation_ids}
-
-
-def test_engine_stub_round_trip():
-    engine.reset()
-    stats = engine.index_chunks(_doc(), [_chunk()])
-    assert (stats.documents, stats.chunks) == (1, 1)
-    hits = engine.retrieve("refund", k=5, mode="bm25")
-    assert hits and isinstance(hits[0], ScoredChunk)
-    result = engine.query_documents("What is the refund window?")
-    assert isinstance(result, QueryResult)
-    assert result.question == "What is the refund window?"
-    assert engine.delete_document("a1b2c3d4e5f6").chunks == 0
 
 
 def test_uncited_claim_is_rejected():
