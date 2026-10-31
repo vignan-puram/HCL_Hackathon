@@ -28,7 +28,7 @@ from common.schemas import (
 )
 from ingestion.errors import IngestionError
 from ingestion.pipeline import doc_id_for, process_file
-from rag import confidence, conflicts, generator, llm, retriever, validator
+from rag import confidence, conflicts, conversational, generator, llm, retriever, validator
 from rag.embeddings import encode
 from rag.index import Index
 from rag.validator import build_citations
@@ -165,6 +165,10 @@ def query_documents(question: str, top_k: int = config.TOP_K, filters: Filters |
     """
     start = time.perf_counter()
     question = question.strip()
+    load()
+    conv = conversational.check_conversational(question, _index, debug=debug)
+    if conv:
+        return conv
     hits = retrieve(question, k=top_k, filters=filters)
     retrieval_ms = int((time.perf_counter() - start) * 1000)
     assessment = confidence.assess(question, hits)

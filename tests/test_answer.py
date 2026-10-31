@@ -93,3 +93,19 @@ def test_conflict_only_draft_becomes_cited_claims():
     assert [c.citation_ids for c in v.claims] == [[1], [2]]
     assert v.claims[0].text.startswith("Billing Policy v2.0 (2025-03-01)")
     assert "[1]" in v.answer and "[2]" in v.answer and len(v.conflicts) == 1
+
+
+def test_conversational_and_acronym_responses():
+    engine.load()
+    greet = engine.query_documents("Hello")
+    assert greet.status == "answered"
+    assert "Enterprise Documentation Assistant" in greet.answer
+
+    help_res = engine.query_documents("What can you do?")
+    assert help_res.status == "answered"
+    assert "Billing & Refunds" in help_res.answer
+
+    acronym_res = engine.query_documents("what does SSO stand for?")
+    assert acronym_res.status == "answered"
+    assert "Single Sign-On" in acronym_res.answer
+    assert len(acronym_res.citations) >= 1

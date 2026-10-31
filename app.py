@@ -5,6 +5,7 @@ Run from repo root: streamlit run app.py
 
 from __future__ import annotations
 
+import importlib
 import json
 import re
 import tempfile
@@ -16,7 +17,11 @@ import streamlit as st
 import config
 from common.schemas import QueryResult, UserMeta
 from ingestion.errors import IngestionError
-from rag import engine, llm
+from rag import confidence, conflicts, conversational, engine, generator, llm, retriever, validator
+
+# Ensure all submodules reload cleanly on every Streamlit script execution
+for mod in [config, confidence, conflicts, conversational, retriever, validator, generator, llm, engine]:
+    importlib.reload(mod)
 
 st.set_page_config(page_title="Nimbus Docs Q&A", page_icon="📚", layout="wide")
 
@@ -87,42 +92,63 @@ def sidebar() -> None:
     sb.markdown(f'<div class="stat">{stats.documents} documents · {stats.chunks} chunks indexed</div>',
                 unsafe_allow_html=True)
 
-    files = sb.file_uploader("Upload documents", type=["pdf", "html", "htm", "md", "markdown", "txt"],
-                             accept_multiple_files=True, key=f"uploader_{st.session_state.get('upload_round', 0)}")
-    with sb.expander("Optional metadata (applies to this batch)"):
-        version = st.text_input("Version", placeholder="e.g. 2.0")
-        date = st.text_input("Effective date", placeholder="YYYY-MM-DD")
-        kind = st.selectbox("Document kind", ["(auto)", "manual", "faq", "release_notes", "policy",
-                                              "support_article", "other"])
-    if sb.button("Index uploaded files", type="primary", disabled=not files, width="stretch"):
-        meta = None
-        if version or date or kind != "(auto)":
-            if date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
-                sb.error("Effective date must be YYYY-MM-DD.")
-                return
-            meta = UserMeta(version=version or None, effective_date=date or None,
-                            doc_kind=None if kind == "(auto)" else kind)
-        with st.spinner("Parsing, chunking and embedding..."):
-            ingest_uploads(files, meta)
-        st.session_state["upload_round"] = st.session_state.get("upload_round", 0) + 1
-        st.rerun()
+    role = st.session_state.setdefault("role", "user")
+    sb.divider()
 
-    if sb.button("Load sample corpus (Nimbus Workspace)", width="stretch"):
-        with st.spinner("Indexing sample corpus..."):
-            for path in sorted(config.CORPUS_DIR.iterdir()):
-                if path.suffix.lower() in config.ALLOWED_EXTENSIONS:
-                    engine.ingest_file(path)
-        st.rerun()
+    if role == "admin":
+        sb.success("🛡️ **Administrator Mode Active**")
+        if sb.button("Log out (Switch to User Mode)", width="stretch"):
+            st.session_state["role"] = "user"
+            st.rerun()
+
+        sb.subheader("📤 Document Ingestion")
+        files = sb.file_uploader("Upload documents", type=["pdf", "html", "htm", "md", "markdown", "txt"],
+                                 accept_multiple_files=True, key=f"uploader_{st.session_state.get('upload_round', 0)}")
+        with sb.expander("Optional metadata (applies to this batch)"):
+            version = st.text_input("Version", placeholder="e.g. 2.0")
+            date = st.text_input("Effective date", placeholder="YYYY-MM-DD")
+            kind = st.selectbox("Document kind", ["(auto)", "manual", "faq", "release_notes", "policy",
+                                                  "support_article", "other"])
+        if sb.button("Index uploaded files", type="primary", disabled=not files, width="stretch"):
+            meta = None
+            if version or date or kind != "(auto)":
+                if date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+                    sb.error("Effective date must be YYYY-MM-DD.")
+                    return
+                meta = UserMeta(version=version or None, effective_date=date or None,
+                                doc_kind=None if kind == "(auto)" else kind)
+            with st.spinner("Parsing, chunking and embedding..."):
+                ingest_uploads(files, meta)
+            st.session_state["upload_round"] = st.session_state.get("upload_round", 0) + 1
+            st.rerun()
+
+        if sb.button("Reload sample corpus (Nimbus)", width="stretch"):
+            with st.spinner("Indexing sample corpus..."):
+                for path in sorted(config.CORPUS_DIR.iterdir()):
+                    if path.suffix.lower() in config.ALLOWED_EXTENSIONS:
+                        engine.ingest_file(path)
+            st.rerun()
+
+        if sb.checkbox("Allow index reset"):
+            if sb.button("Reset index", width="stretch"):
+                engine.reset()
+                st.session_state["history"] = []
+                st.rerun()
+    else:
+        sb.info("👤 **User Mode: Search & Query**\n\nDocument ingestion and index management are restricted to Administrators to prevent data conflicts.")
+        with sb.expander("🔐 Admin Login"):
+            pwd = st.text_input("Admin Password", type="password", key="admin_pwd_input")
+            if st.button("Unlock Admin Mode", width="stretch"):
+                if pwd == config.ADMIN_PASSWORD:
+                    st.session_state["role"] = "admin"
+                    st.rerun()
+                else:
+                    sb.error("Incorrect password.")
 
     sb.divider()
     model = llm.models()[0] if llm.is_configured() else None
     sb.markdown(f"**LLM:** {config.LLM_PROVIDER} · `{model}`" if model else
                 "**LLM:** not configured: answers are extractive only")
-    if sb.checkbox("Allow index reset"):
-        if sb.button("Reset index", width="stretch"):
-            engine.reset()
-            st.session_state["history"] = []
-            st.rerun()
 
 
 # ---------------------------------------------------------------- answer rendering
@@ -216,7 +242,7 @@ def render_result(result: QueryResult, key: str) -> None:
         st.info(result.answer)
         if not (result.debug or {}).get("llm_called"):
             st.caption("Evidence was too weak, so no LLM call was made: nothing could be invented.")
-    if result.status != "not_found" and result.answer:
+    elif result.answer:
         st.markdown(render_answer_text(result.answer), unsafe_allow_html=True)
     if any(cl.support == "weak" for cl in result.claims):
         st.caption("Some statements are only weakly supported by the cited passages.")
@@ -232,12 +258,26 @@ def render_result(result: QueryResult, key: str) -> None:
 
 def ask_tab() -> None:
     history: list[tuple[str, QueryResult]] = st.session_state.setdefault("history", [])
-    st.caption("Try an example:")
+
+    top_left, top_right = st.columns([5, 1])
+    with top_left:
+        st.caption("Try an example scenario (or ask any custom question in the chat bar at the bottom):")
+    with top_right:
+        if st.button("🗑️ Clear chat", width="stretch", help="Clear conversation history"):
+            st.session_state["history"] = []
+            st.rerun()
+
     cols = st.columns(len(EXAMPLES))
     clicked = None
     for col, (label, question) in zip(cols, EXAMPLES):
         if col.button(label, help=question, width="stretch"):
             clicked = question
+
+    if not history:
+        st.info(
+            "💬 **Ask any question about your documents** in the chat bar pinned at the bottom of the page, "
+            "or click any example above to test grounded answers, conflict detection, and policy citations."
+        )
 
     for i, (question, result) in enumerate(history):
         with st.chat_message("user"):
@@ -245,7 +285,7 @@ def ask_tab() -> None:
         with st.chat_message("assistant"):
             render_result(result, key=str(i))
 
-    question = st.chat_input("Ask a question about your documents...") or clicked
+    question = st.chat_input("Ask any question about your documents (e.g. 'Can I get a refund?', 'What are rate limits?')...") or clicked
     if question:
         if engine.index_stats().chunks == 0:
             st.warning("Upload documents or load the sample corpus first.")
@@ -257,6 +297,7 @@ def ask_tab() -> None:
                 result = engine.query_documents(question.strip()[:1000], debug=True)
             render_result(result, key=str(len(history)))
         history.append((question, result))
+        st.rerun()
 
 
 def documents_tab() -> None:
@@ -279,9 +320,10 @@ def documents_tab() -> None:
         page = f" · p. {c.page_start}" if c.page_start else ""
         with st.expander(f"#{c.ordinal} · {' > '.join(c.section_path) or '(introduction)'}{page} · {c.word_count} words"):
             st.text(c.text)
-    if st.button(f"Remove {pick} from the index"):
-        engine.delete_document(doc.doc_id)
-        st.rerun()
+    if st.session_state.get("role") == "admin":
+        if st.button(f"Remove {pick} from the index"):
+            engine.delete_document(doc.doc_id)
+            st.rerun()
 
 
 def evaluation_tab() -> None:

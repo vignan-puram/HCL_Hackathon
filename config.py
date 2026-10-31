@@ -50,10 +50,13 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")  # gemini | openai
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 # tried in order when the primary model is overloaded or times out
-GEMINI_FALLBACK_MODELS = [m.strip() for m in os.getenv("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash,gemini-flash-lite-latest").split(",") if m.strip()]
+GEMINI_FALLBACK_MODELS = [m.strip() for m in os.getenv("GEMINI_FALLBACK_MODELS", "gemini-2.0-flash,gemini-1.5-flash,gemini-flash-lite-latest").split(",") if m.strip()]
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "openai/gpt-oss-120b")
 LLM_TIMEOUT_S = 30
 LLM_RETRIES = 1  # per model
 LLM_COOLDOWN_S = 600  # skip a model this long after it fails
+
+# ---- access control (RBAC)
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")

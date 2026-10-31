@@ -168,6 +168,6 @@ def validate(draft: dict, hits: list[ScoredChunk]) -> Validated:
                 label = c.doc_title + (f" v{c.version}" if c.version else "") + (f" ({c.effective_date})" if c.effective_date else "")
                 claims.append(Claim(text=f"{label}: {pos.statement}", citation_ids=[pos.citation_id],
                                     support=_support(pos.statement, [_source_text(hits[hit_of_cid[pos.citation_id]])])))
-    answer = " ".join(f"{cl.text.rstrip('.')} [{', '.join(map(str, cl.citation_ids))}]." for cl in claims)
+    answer = " ".join(f"{re.sub(r'\s*\[\d+(?:,\s*\d+)*\]\s*$', '', cl.text).rstrip('.')} [{', '.join(map(str, cl.citation_ids))}]." for cl in claims)
     return Validated(claims, citations, conflicts, answer, cid_of_hit,
                      dropped_claims=len(raw_claims) - len(kept), invalid_ids=invalid)
