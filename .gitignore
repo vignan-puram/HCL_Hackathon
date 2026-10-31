@@ -1,10 +1,30 @@
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# Python environments
 .venv/
 venv/
+
+# Python cache
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
+
+# Application cache
+.cache/
+
+# Logs
+*.log
+
+# Generated vector indexes
+vector_store/
+chroma_db/
+faiss_index/
+
+# Temporary uploads
+uploads/
+# Runtime data (index, uploads, LLM cache, eval index)
 data/
 data_eval/
-.cache/
-*.log
