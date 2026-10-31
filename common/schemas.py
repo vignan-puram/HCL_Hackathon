@@ -186,3 +186,46 @@ class QueryResult(BaseModel):
     model: str | None = None
     timings_ms: dict[str, int] = Field(default_factory=dict)
     debug: dict[str, Any] | None = None
+
+
+# ---------------------------------------------------------------- API responses
+
+
+class HealthResponse(BaseModel):
+    status: str = "ok"
+    index: IndexStats
+    llm_provider: str
+
+
+class UploadDocSummary(BaseModel):
+    doc_id: str
+    title: str
+    num_chunks: int
+
+
+class UploadItemError(BaseModel):
+    code: ErrorCode
+    message: str
+
+
+class UploadItem(BaseModel):
+    filename: str
+    status: Literal["indexed", "duplicate", "failed"]
+    document: UploadDocSummary | None = None
+    error: UploadItemError | None = None
+
+
+class UploadResponse(BaseModel):
+    results: list[UploadItem]
+    index: IndexStats
+
+
+class ErrorBody(BaseModel):
+    code: ErrorCode
+    message: str
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorBody
+

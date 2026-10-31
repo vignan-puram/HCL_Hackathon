@@ -16,14 +16,20 @@ py -3.12 -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env          # add GEMINI_API_KEY (free key from Google AI Studio)
 python -m scripts.check_llm     # verifies the key and the model fallback chain
-streamlit run app.py            # http://localhost:8501 → "Load sample corpus" → ask
+
+# Terminal 1: FastAPI REST API (Swagger docs at http://localhost:8000/docs)
+uvicorn backend.main:app --port 8000 --reload
+
+# Terminal 2: Streamlit Interactive UI (http://localhost:8501)
+streamlit run app.py
 ```
 
 Other commands (run from the repo root):
 
 | Command | What it does |
 |---|---|
-| `pytest` | 30 tests: parsers, chunking, retrieval, validator, gate, conflicts, LLM fallback |
+| `uvicorn backend.main:app --port 8000` | Start FastAPI REST backend (`/docs`, `/query`, `/upload`, `/health`) |
+| `pytest` | 38 tests: REST API, parsers, chunking, retrieval, validator, gate, conflicts, LLM fallback |
 | `python -m eval.run_eval` | Full evaluation → `eval/reports/` (metrics.json, eval_report.md, examples.md) |
 | `python -m eval.run_eval --retrieval-only` | Retrieval metrics + gate calibration, no LLM calls |
 | `python -m rag.engine index-corpus` | Index `eval/corpus/` from the command line |
@@ -69,6 +75,7 @@ entry point used by the app, the CLI and the evaluation runner.
 
 ```
 app.py                 Streamlit UI: Ask / Documents / Evaluation tabs
+backend/               FastAPI REST app (main.py) and error handlers (errors.py)
 config.py              paths, model names, thresholds
 common/schemas.py      Pydantic data contracts (Chunk, Citation, Conflict, QueryResult, ...)
 ingestion/             parsers.py, chunker.py, pipeline.py, errors.py

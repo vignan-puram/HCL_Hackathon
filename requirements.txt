@@ -1,4 +1,7 @@
-# Python 3.12. Single Streamlit app; no PyTorch needed (fastembed uses ONNX).
+# Python 3.12. Streamlit UI + FastAPI backend; no PyTorch needed (fastembed uses ONNX).
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
 streamlit>=1.38
 pymupdf>=1.24
 beautifulsoup4>=4.12
