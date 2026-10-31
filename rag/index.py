@@ -19,7 +19,7 @@ from common.schemas import Chunk, DocumentRecord
 _STOPWORDS = set(
     "a an the and or of to in on for with by is are was were be been it its this that these those "
     "do does did how what when where which who why can could should would will i my me we our you your "
-    "there their they them at as from if not no".split()
+    "there their they them at as from if not no s".split()
 )
 
 

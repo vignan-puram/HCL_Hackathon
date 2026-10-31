@@ -16,6 +16,7 @@ from pathlib import Path
 import config
 from common.schemas import (
     Chunk,
+    Claim,
     Confidence,
     DocumentRecord,
     Filters,
@@ -27,7 +28,7 @@ from common.schemas import (
 )
 from ingestion.errors import IngestionError
 from ingestion.pipeline import doc_id_for, process_file
-from rag import retriever
+from rag import confidence, conflicts, generator, llm, retriever, validator
 from rag.embeddings import encode
 from rag.index import Index
 from rag.validator import build_citations
@@ -128,24 +129,108 @@ def retrieve(question: str, k: int = config.TOP_K, filters: Filters | None = Non
     return retriever.retrieve(_index, question, k=k, filters=filters, mode=mode)
 
 
+def _hits_table(hits: list[ScoredChunk]) -> list[dict]:
+    return [{
+        "rank": n, "document": h.chunk.filename, "section": " > ".join(h.chunk.section_path) or "(introduction)",
+        "cosine": h.dense_score, "dense_rank": h.dense_rank, "bm25_rank": h.bm25_rank, "rrf": h.rrf_score,
+    } for n, h in enumerate(hits, start=1)]
+
+
+def _not_found_answer(hits: list[ScoredChunk]) -> str:
+    titles = list(dict.fromkeys(h.chunk.doc_title for h in hits[:3]))
+    if not titles:
+        return "No documents are indexed yet."
+    closest = ", ".join(titles[:-1]) + (" and " if len(titles) > 1 else "") + titles[-1]
+    return ("I couldn't find information about this in the uploaded documents. "
+            f"The closest documents searched were {closest}, which don't appear to cover it.")
+
+
+def _extractive(question: str, hits: list[ScoredChunk], candidates: list[conflicts.ConflictCandidate]):
+    """Fallback when the LLM is unavailable: quote the top passages with citations."""
+    citations = build_citations(hits[:3], question)
+    cid_of_hit = {i: c.id for i, c in enumerate(citations)}
+    by_id = {c.id: c for c in citations}
+    found = [conflicts.candidate_to_conflict(c, cid_of_hit, by_id) for c in candidates
+             if c.i in cid_of_hit and c.j in cid_of_hit]
+    claims = [Claim(text=c.excerpt, citation_ids=[c.id]) for c in citations]
+    answer = "\n".join(f"- {c.excerpt} [{c.id}]" for c in citations)
+    return claims, citations, found, answer
+
+
 def query_documents(question: str, top_k: int = config.TOP_K, filters: Filters | None = None,
                     debug: bool = False) -> QueryResult:
-    """Extractive mode (Milestone 4): top passages as cited evidence, no LLM."""
+    """Retrieve -> gate -> conflict rules -> one LLM call -> validate -> QueryResult.
+
+    Never raises for LLM problems: falls back to an extractive answer with degraded=True.
+    """
     start = time.perf_counter()
+    question = question.strip()
     hits = retrieve(question, k=top_k, filters=filters)
     retrieval_ms = int((time.perf_counter() - start) * 1000)
-    citations = build_citations(hits, question)
-    answer = "\n".join(f"- {c.excerpt} [{c.id}]" for c in citations[:3]) or "No documents indexed."
-    return QueryResult(
-        query_id=f"q_{uuid.uuid4().hex[:6]}",
-        question=question,
-        status="answered" if citations else "not_found",
-        answer=answer,
-        citations=citations,
-        confidence=Confidence(level="low", score=0.0, reasons=["Extractive mode: no LLM answer generated"]),
-        degraded=True,
-        timings_ms={"retrieval": retrieval_ms, "generation": 0, "total": retrieval_ms},
-    )
+    assessment = confidence.assess(question, hits)
+    dbg: dict = {"hits": _hits_table(hits), "llm_called": False,
+                 "gate": {"decision": assessment.decision, "top_score": assessment.top_score, "threshold": config.T_LOW}}
+
+    def result(status, answer, gen_ms=0, **kw) -> QueryResult:
+        total = int((time.perf_counter() - start) * 1000)
+        return QueryResult(
+            query_id=f"q_{uuid.uuid4().hex[:6]}", question=question, status=status, answer=answer,
+            confidence=kw.pop("conf", assessment.confidence),
+            timings_ms={"retrieval": retrieval_ms, "generation": gen_ms, "total": total},
+            debug=dbg if debug else None, **kw,
+        )
+
+    if assessment.decision == "not_found":
+        return result("not_found", _not_found_answer(hits))
+    if assessment.decision == "clarify":
+        options = assessment.clarify_options
+        q = f"Your question could refer to several things: {', '.join(options[:-1])} or {options[-1]}. Which one do you mean?"
+        return result("needs_clarification", q, clarifying_question=q, citations=build_citations(hits[:3], question))
+
+    candidates = conflicts.detect(hits)
+    dbg["conflict_candidates"] = [c.summary for c in candidates]
+    gen_start = time.perf_counter()
+    try:
+        draft, resp = generator.generate(question, hits, candidates)
+    except llm.LLMError as exc:
+        dbg["llm_error"] = str(exc)[:300]
+        claims, citations, found, answer = _extractive(question, hits, candidates)
+        conf = confidence.lower_level(assessment.confidence, "Language model unavailable: showing quoted passages")
+        return result("conflict" if found else "answered", answer, int((time.perf_counter() - gen_start) * 1000),
+                      claims=claims, citations=citations, conflicts=found, degraded=True, conf=conf)
+    gen_ms = int((time.perf_counter() - gen_start) * 1000)
+    dbg.update(llm_called=True, llm_cached=resp.cached)
+
+    v = validator.validate(draft, hits)
+    dbg["validator"] = {"dropped_claims": v.dropped_claims, "invalid_ids": v.invalid_ids}
+    conf = assessment.confidence
+    llm_status = draft.get("status")
+
+    if llm_status == "needs_clarification" and draft.get("clarifying_question"):
+        q = str(draft["clarifying_question"])
+        return result("needs_clarification", q, gen_ms, clarifying_question=q, model=resp.model,
+                      citations=build_citations(hits[:3], question), conf=conf)
+    if llm_status == "not_found" or not v.claims:
+        conf = Confidence(level="low", score=min(conf.score, 0.3),
+                          reasons=conf.reasons + ["The model found the retrieved evidence insufficient"])
+        return result("not_found", _not_found_answer(hits), gen_ms, model=resp.model, conf=conf)
+
+    by_id = {c.id: c for c in v.citations}
+    found = conflicts.merge(v.conflicts, candidates, v.cid_of_hit, by_id, set(v.cid_of_hit))
+    if v.dropped_claims and v.dropped_claims * 3 > v.dropped_claims + len(v.claims):
+        conf = confidence.lower_level(conf, f"{v.dropped_claims} unsupported claim(s) removed")
+    if found:
+        conf = conf.model_copy(update={"reasons": conf.reasons + ["Sources disagree"]})
+        status = "conflict"
+    elif llm_status == "partial" or draft.get("missing_info") or v.dropped_claims * 3 > v.dropped_claims + len(v.claims):
+        status = "partial"
+    else:
+        status = "answered"
+    answer = v.answer
+    if status == "partial" and draft.get("missing_info"):
+        answer += f" Not covered by the documents: {draft['missing_info']}"
+    return result(status, answer, gen_ms, claims=v.claims, citations=v.citations, conflicts=found,
+                  model=resp.model, conf=conf)
 
 
 # ---------------------------------------------------------------- CLI
@@ -168,7 +253,7 @@ def _cli(argv: list[str]) -> None:
                 print(f"{h.final_score:.4f} cos={h.dense_score:.3f} d#{h.dense_rank} b#{h.bm25_rank} "
                       f"{h.chunk.filename} > {' > '.join(h.chunk.section_path)}")
         else:
-            print(query_documents(question).model_dump_json(indent=1))
+            print(query_documents(question, debug="--debug" in argv).model_dump_json(indent=1, exclude_none=True))
 
 
 if __name__ == "__main__":
