@@ -1,0 +1,24 @@
+Getting Started with Nimbus Workspace
+=====================================
+
+This guide helps new administrators set up their organisation in Nimbus Workspace during the first week.
+
+Creating Your Tenant
+--------------------
+
+Each organisation gets its own tenant, an isolated space that holds its users, files and settings. To create a tenant, sign up at the Nimbus website, choose a plan, and enter your organisation name. The person who creates the tenant becomes its Owner. You can rename the tenant later in Admin Console > Settings.
+
+Inviting Members
+----------------
+
+Admins invite people from Admin Console > Users > Invite. Enter one email address per line to invite several people at once. Invitations expire after 7 days; expired invitations can be resent from the same page. New members choose their own password unless the tenant uses single sign-on.
+
+Assigning Roles
+---------------
+
+Every member has one role: Owner, Admin, Member or Guest. Owners manage billing and can delete the tenant. Admins manage users, security settings and API keys. Members create and share content. Guests can only see items that are shared with them.
+
+First-Week Checklist
+--------------------
+
+Enable multi-factor authentication for all admins, connect your identity provider if you use single sign-on, invite your first team, and review the plan usage limits so you know how much storage and how many users your plan includes.

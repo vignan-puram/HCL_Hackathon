@@ -1,0 +1,25 @@
+NIMBUS WORKSPACE TROUBLESHOOTING GUIDE
+
+Support article. Last reviewed 2025-03-15.
+
+This article explains the most common errors in Nimbus Workspace and how to fix them. Error codes appear in API responses and in the web app.
+
+ERR-401: AUTHENTICATION FAILED
+
+ERR-401 means the request could not be authenticated. The API key is missing, mistyped, revoked or expired. Check that the Authorization header uses the Bearer scheme and that the key has not been revoked in Admin Console > Developer > API keys. If the key has expired, create a new one and update your integration.
+
+ERR-403: PERMISSION DENIED
+
+ERR-403 means the user or API key is authenticated but does not have permission for the action. For example, only Owners can create workspaces and only Admins can manage users. Ask a workspace admin to grant the required role.
+
+ERR-429: TOO MANY REQUESTS
+
+ERR-429 means too many requests were sent in a short period and the rate limit was exceeded. Wait for the number of seconds given in the Retry-After header before sending more requests. To avoid the error, spread requests over time, use bulk endpoints, and use a separate API key for each integration.
+
+CANNOT SIGN IN
+
+If a user cannot sign in, first check whether the workspace uses single sign-on. SSO users must sign in through their identity provider, not with a Nimbus password. If the account is locked after too many failed attempts, wait 15 minutes or ask an admin to reset the password. Admins can follow the password reset steps in the Administrator Guide.
+
+UPLOADS FAIL
+
+Uploads fail when the file is larger than the plan's maximum file size or when the workspace has reached its storage limit. Check usage in Admin Console > Usage and empty the trash, because files in the trash still count towards storage.

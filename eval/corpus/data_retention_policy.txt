@@ -1,0 +1,27 @@
+Data Retention Policy
+=====================
+
+Version 1.2
+Effective date: 2025-05-01
+
+1. Scope
+
+This policy explains how long Nimbus Workspace keeps customer data after it has been deleted by a user or an admin, and how backups are handled. It applies to files, messages, workspaces and audit logs.
+
+2. Retention Periods by Plan
+
+Enterprise plan: deleted workspace data is retained for 180 days before permanent deletion. This extended period gives Enterprise customers more time to recover data and to meet internal compliance reviews.
+
+Free and Pro plans: deleted data follows the standard retention period of 90 days described in the Security FAQ.
+
+3. Backups
+
+Encrypted backups are kept for 35 days. Backups are used only for disaster recovery and cannot be used to restore individual files on request.
+
+4. Legal Hold
+
+Enterprise admins can place a workspace on legal hold. Data under legal hold is never permanently deleted until the hold is released, regardless of the retention period.
+
+5. Audit Logs
+
+Audit logs are retained for 12 months on the Pro plan and 24 months on the Enterprise plan. The Free plan does not include audit logs.

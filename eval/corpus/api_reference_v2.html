@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Nimbus API Reference</title>
+  <meta name="version" content="2.4">
+  <meta name="last-updated" content="2023-09-12">
+  <script>window.analytics = { track: function () {} };</script>
+  <style>body { font-family: sans-serif; }</style>
+</head>
+<body>
+  <header><nav><a href="/">Home</a> | <a href="/docs">Docs</a> | <a href="/status">Status</a></nav></header>
+  <main>
+    <h1>Nimbus API Reference</h1>
+    <p>Version 2.4 &middot; Last updated: 2023-09-12</p>
+    <p>The Nimbus REST API lets you automate workspace administration, user management and file operations. All endpoints are served over HTTPS from <code>https://api.nimbus.example/v2</code> and return JSON.</p>
+
+    <h2>Authentication</h2>
+    <p>Every request must include an API key in the <code>Authorization</code> header using the Bearer scheme, for example <code>Authorization: Bearer nmb_live_xxx</code>. API keys are created by workspace admins in the Admin Console.</p>
+    <p>Basic authentication with a username and password is also supported for legacy integrations, but API keys are recommended for all new integrations.</p>
+
+    <h2>Rate Limits</h2>
+    <p>The API allows 100 requests per minute per API key. Requests above this limit are rejected with HTTP status 429 and the error code ERR-429. The response includes a <code>Retry-After</code> header that tells the client how many seconds to wait before retrying.</p>
+    <p>Bulk endpoints count as one request regardless of how many records they return. Rate limits are applied per API key, not per workspace, so separate integrations should use separate keys.</p>
+
+    <h2>Endpoints</h2>
+    <h3>Workspaces</h3>
+    <p><code>GET /v2/workspaces</code> lists the workspaces the API key can access. <code>POST /v2/workspaces</code> creates a new workspace and requires the Owner role.</p>
+    <h3>Users</h3>
+    <p><code>GET /v2/users</code> lists users in a workspace. <code>POST /v2/users/invite</code> sends an invitation email. <code>DELETE /v2/users/{id}</code> removes a user and transfers their files to the workspace owner.</p>
+
+    <h2>Pagination</h2>
+    <p>List endpoints return at most 50 items per page. Use the <code>next_cursor</code> value from the response to request the following page. A missing <code>next_cursor</code> means there are no more results.</p>
+
+    <h2>Error Codes</h2>
+    <table>
+      <tr><th>Code</th><th>HTTP status</th><th>Meaning</th></tr>
+      <tr><td>ERR-401</td><td>401</td><td>The API key is missing, invalid or expired.</td></tr>
+      <tr><td>ERR-403</td><td>403</td><td>The API key is valid but the caller's role does not permit this action.</td></tr>
+      <tr><td>ERR-429</td><td>429</td><td>Rate limit exceeded; wait for the Retry-After interval.</td></tr>
+    </table>
+  </main>
+  <footer><p>&copy; 2023 Nimbus Labs (fictional). All rights reserved.</p></footer>
+</body>
+</html>
