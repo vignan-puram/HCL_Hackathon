@@ -44,3 +44,4 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
         )
     ).model_dump()
     return JSONResponse(status_code=exc.status_code, content=content)
+

@@ -101,3 +101,4 @@ def test_upload_and_delete_lifecycle():
     # 6. Verify 404 after deletion
     file_res_after = client.get(f"/documents/{doc_id}/file")
     assert file_res_after.status_code == 404
+

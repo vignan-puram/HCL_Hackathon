@@ -269,3 +269,4 @@ def delete_document(doc_id: str) -> IndexStats:
 def reset_index() -> IndexStats:
     """Clear all documents and chunks from the knowledge base."""
     return engine.reset()
+
