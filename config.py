@@ -39,7 +39,7 @@ RRF_K = 60
 TOP_K = 5
 
 # ---- confidence gate + conflicts
-T_LOW = 0.60
+T_LOW = 0.59  # midpoint of eval calibration (answerable min 0.601, unanswerable max 0.580)
 CONF_HIGH = 0.70
 CONF_MEDIUM = 0.45
 CONFLICT_SIM = 0.75
